@@ -2,6 +2,7 @@ import { ensureSessionVariableDirectory } from './domain/session-variable-direct
 import { createCompatibilityTurnCompiler } from './domain/compatibility-turn.js'
 import { registerTavernHttpRoutes } from './http/routes.js'
 import { registerRequestHooks } from './hooks/request.js'
+import { registerDeepSeekModelDiscovery } from './deepseek-model-discovery.js'
 import { registerModelStreamHooks } from './hooks/model-stream.js'
 import { registerTurnLifecycleHooks } from './hooks/turn-lifecycle.js'
 import { registerGameplayTools } from './tools/gameplay.js'
@@ -215,6 +216,7 @@ export async function apply(ctx) {
   }
   await clearLegacyTavernDefault(ctx.get('settings'))
   const llm = ctx.get('llm')
+  registerDeepSeekModelDiscovery(ctx)
   const agentRegistry = ctx.get('agents')
   const sessionStore = ctx.get('sessions')
   ctx.effect(() => installTavernTokenMeter(ctx.get('tokenMeter')))

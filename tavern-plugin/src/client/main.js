@@ -617,6 +617,8 @@ window.__ModuleLoader__.load({
 // @include features/scene-images.js
 // @include features/settings.js
 
+// @include features/model-discovery.js
+
 // @include features/user-profile.js
 
 // @include features/guide-library.js
@@ -644,7 +646,7 @@ window.__ModuleLoader__.load({
 // @include features/request-context.js
 
 
-		const inject = ["slots", "sessions", "workspaces", "layout", "connection", "conversation", "betterSidebar", "remote", "remote.commands", "tavernSessionSignals"];
+		const inject = ["slots", "sessions", "workspaces", "layout", "connection", "conversation", "betterSidebar", "remote", "remote.commands", "remote.settings", "remote.llm", "tavernSessionSignals"];
 
 		function apply(ctx) {
 			ctx.effect(() => displayPreferences.start(), "dsh-tavern: global display preferences");
@@ -776,6 +778,7 @@ window.__ModuleLoader__.load({
 			}
 			registerTavernStartPage(ctx, slots);
 			playControlsFeature.register({ ctx: ctx, slots: slots });
+			modelDiscoveryFeature.register({ ctx: ctx, slots: slots });
 			assistantRendererFeature.register({ ctx: ctx, slots: slots });
 			// Native history paging owns loading; TavernWindowedNode bounds live bodies without shadowing its slots.
 			ctx.effect(function () {
