@@ -79,6 +79,10 @@ function installOpeningPreviewBridge(token, preview) {
   };
   window.TavernHelper = Object.assign({}, original && original.helper, { triggerSlash: window.triggerSlash, generateRaw: window.generateRaw, getCharWorldbookNames: window.getCharWorldbookNames,
     getWorldbook: window.getWorldbook, updateWorldbookWith: window.updateWorldbookWith });
+  // Rebuilding the object above drops lazily installed legacy lorebook readers.
+  ['getLorebookEntries', 'getLorebooks', 'getCharLorebooks', 'getCurrentCharPrimaryLorebook', 'getLorebookSettings'].forEach(function (name) {
+    if (typeof window[name] === 'function' && typeof window.TavernHelper[name] !== 'function') window.TavernHelper[name] = window[name];
+  });
   const chat = [{ is_user: false, name: preview.characterName || '', mes: swipes[selected], swipe_id: selected, swipes: swipes.slice() }];
   let savedIndex = selected;
   const swipe = { to: async function (_chatId, direction, options = {}) {

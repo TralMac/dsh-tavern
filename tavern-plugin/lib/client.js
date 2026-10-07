@@ -3491,6 +3491,40 @@ window.__ModuleLoader__.load({
 				+ tavernIconDependencies() + tavernStaticAssetShim() + '</head><body>' + content + preserveMixedTextLines + '</body></html>';
 		}
 
+		// Read-only legacy lorebook API for frames without the full helper runtime.
+		function installTavernLegacyLorebookReaders() {
+			function copy(value) { return JSON.parse(JSON.stringify(value)); }
+			function legacy(entry, index) {
+				const extra = entry.extra || {};
+				return {
+					uid: entry.uid, display_index: extra.displayIndex === undefined ? index : extra.displayIndex,
+					comment: entry.name, enabled: entry.enabled, type: entry.strategy.type,
+					position: entry.position.type === "at_depth" ? "at_depth_as_" + entry.position.role : entry.position.type,
+					depth: entry.position.type === "at_depth" ? entry.position.depth : null, order: entry.position.order,
+					probability: entry.probability, content: entry.content, keys: copy(entry.strategy.keys),
+					logic: entry.strategy.keys_secondary.logic, filters: copy(entry.strategy.keys_secondary.keys), scan_depth: entry.strategy.scan_depth,
+					case_sensitive: extra.caseSensitive == null ? "same_as_global" : extra.caseSensitive,
+					match_whole_words: extra.matchWholeWords == null ? "same_as_global" : extra.matchWholeWords,
+					group: extra.group || "", exclude_recursion: entry.recursion.prevent_incoming, prevent_recursion: entry.recursion.prevent_outgoing,
+					delay_until_recursion: entry.recursion.delay_until === null ? false : entry.recursion.delay_until,
+					sticky: entry.effect.sticky, cooldown: entry.effect.cooldown, delay: entry.effect.delay,
+					use_group_scoring: "same_as_global", automation_id: null, group_prioritized: false, group_weight: 100
+				};
+			}
+			const readers = {
+				getLorebookEntries: async function (name) { return (await window.getWorldbook(name)).map(legacy); },
+				getLorebooks: function () { return window.getWorldbookNames(); },
+				getCharLorebooks: async function () { return window.getCharWorldbookNames(); },
+				getCurrentCharPrimaryLorebook: function () { return window.getCharWorldbookNames().primary; },
+				getLorebookSettings: function () { return { selected_global_lorebooks: [] }; }
+			};
+			window.TavernHelper = window.TavernHelper || {};
+			for (const name of Object.keys(readers)) {
+				if (typeof window[name] !== "function") window[name] = readers[name];
+				Object.defineProperty(window.TavernHelper, name, { enumerable: true, configurable: true, get: function () { return window[name]; }, set: function (value) { window[name] = value; } });
+			}
+		}
+
 		function installTavernFrameVariableAliases() {
 			window.getAllVariables = function () {
 				// Read through the live Helper API so context updates and MVU view
@@ -3633,6 +3667,10 @@ window.__ModuleLoader__.load({
 		  };
 		  window.TavernHelper = Object.assign({}, original && original.helper, { triggerSlash: window.triggerSlash, generateRaw: window.generateRaw, getCharWorldbookNames: window.getCharWorldbookNames,
 		    getWorldbook: window.getWorldbook, updateWorldbookWith: window.updateWorldbookWith });
+		  // Rebuilding the object above drops lazily installed legacy lorebook readers.
+		  ['getLorebookEntries', 'getLorebooks', 'getCharLorebooks', 'getCurrentCharPrimaryLorebook', 'getLorebookSettings'].forEach(function (name) {
+		    if (typeof window[name] === 'function' && typeof window.TavernHelper[name] !== 'function') window.TavernHelper[name] = window[name];
+		  });
 		  const chat = [{ is_user: false, name: preview.characterName || '', mes: swipes[selected], swipe_id: selected, swipes: swipes.slice() }];
 		  let savedIndex = selected;
 		  const swipe = { to: async function (_chatId, direction, options = {}) {
@@ -4775,6 +4813,7 @@ window.__ModuleLoader__.load({
 				+ '<meta http-equiv="Content-Security-Policy" content="default-src https: http: data: blob:; img-src https: http: data: blob:; media-src https: http: data: blob:; font-src https: http: data:; style-src \'unsafe-inline\' https: http:; script-src \'unsafe-inline\' \'unsafe-eval\' https: http: data: blob:; connect-src https: http: wss: data: blob:; frame-src https: http: data: blob:; object-src \'none\'; base-uri \'none\'; form-action \'none\'">'
 				+ '<style>:root{color-scheme:light dark}html,body{box-sizing:border-box;margin:0;min-height:0;background:transparent;color:CanvasText;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:16px;line-height:1.75}body{padding:0 1px;overflow-wrap:anywhere;white-space:pre-wrap}html[data-dsh-tavern-scroll]{overflow-y:auto!important}html[data-dsh-tavern-scroll] body{overflow-y:visible!important}body>*{white-space:normal}maintext{display:block;white-space:pre-wrap;overflow-wrap:anywhere}.dsh-tavern-plain-text{white-space:pre-wrap;overflow-wrap:anywhere}*,*:before,*:after{box-sizing:border-box}img,video,svg,canvas{max-width:100%;height:auto}pre{max-width:100%;overflow:auto;white-space:pre-wrap}table{max-width:100%;border-collapse:collapse}a{color:LinkText}</style>' + (preparationRuntime ? preparationRuntime.head : helperDependencies) + ((!sizing || sizing.mode === "content") ? '<style data-dsh-tavern-content-roots>html:root,html:root body{height:auto!important;min-height:0!important}</style>' : '') + tavernStaticAssetShim() + '<script data-dsh-tavern-remote-document>(' + installTavernRemoteDocumentLoader.toString() + ')();<\/script>' + storageShim + helperShim + interactiveHelperShim + mvuViewObservationShim + cleanRuntimeReporter + sizingStyle
 				+ (input && input.helperContext && input.helperContext.openingHost ? '<script data-dsh-tavern-session-opening>(' + installSessionOpeningBridge.toString() + ')(' + token + ',' + JSON.stringify(Object.assign({}, input.helperContext.openingHost, { extensionSettings: input.helperContext.extensionSettings || {} })).replace(/</g, '\\u003c') + ');<\/script>' : '')
+				+ (input && (input.helperContext || input.openingPreview) ? '<script data-dsh-tavern-legacy-lorebook>(' + installTavernLegacyLorebookReaders.toString() + ')();<\/script>' : '')
 				+ (input && input.helperContext ? '<script data-dsh-tavern-frame-variable-aliases>(' + installTavernFrameVariableAliases.toString() + ')();<\/script>' : '')
 				+ (input && input.helperContext && input.persistent === true && input.preserveInstance !== true ? '<script data-dsh-tavern-status-refresh>(' + installTavernStatusRefresh.toString() + ')(' + token + ');<\/script>' : '')
 				+ (input && input.openingPreview ? '<script data-dsh-tavern-opening-preview>(function(){const install=()=>(' + installOpeningPreviewBridge.toString() + ')(' + token + ',' + JSON.stringify(input.openingPreview).replace(/</g, '\\u003c') + ');if(window.__dshTavernHelperReady)window.__dshTavernHelperReady.then(install);else install();})();<\/script>' : '')
